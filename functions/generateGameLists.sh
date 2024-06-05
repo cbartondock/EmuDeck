@@ -1,29 +1,27 @@
 #!/bin/bash
 generateGameLists() {
-
     pegasus_setPaths
-
     python $HOME/.config/EmuDeck/backend/tools/generate_game_lists.py "$romsPath"
-    #generateGameLists_artwork &> /dev/null &
 }
 
 generateGameListsJson() {
     cat $HOME/emudeck/roms_games.json
-    generateGameLists_artwork &> /dev/null &
+    generateGameLists_artwork $1 &> /dev/null &
 }
-
+log=$HOME/.config/EmuDeck/backend.log
 generateGameLists_artwork() {
     json=$(cat "$HOME/emudeck/roms_games.json")
     platforms=$(echo "$json" | jq -r '.[].id')
-
-    accountfolder=$(ls -d $HOME/.steam/steam/userdata/* | head -n 1)
+    echo "generateGameLists_artwork" > $log
+    accountfolder="$HOME/.steam/steam/userdata/$1";
+    echo $accountfolder >> $log;
     dest_folder="$accountfolder/config/grid/"
     mkdir -p "$dest_folder"
 
     declare -A processed_games
 
     for platform in $platforms; do
-        echo "Processing platform: $platform"
+        echo "Processing platform: $platform" >> $log
         games=$(echo "$json" | jq -r --arg platform "$platform" '.[] | select(.id == $platform) | .games[]?.name')
 
         declare -a download_array
@@ -33,7 +31,7 @@ generateGameLists_artwork() {
             file_to_check="$dest_folder${game// /_}*"
 
            if ! ls $file_to_check 1> /dev/null 2>&1 && [ -z "${processed_games[$game]}" ]; then
-                echo -ne "$game"
+                echo -ne "$game" >> $log
 
                 response=$(curl -s -G "https://bot.emudeck.com/steamdbimg.php?name=$game&platform=$platform")
                 game_name=$(echo "$response" | jq -r '.name')
@@ -43,7 +41,7 @@ generateGameLists_artwork() {
 
 
                 if [ ! -f "$dest_path" ] && [ $game_img_url != "null" ]; then
-                    echo -e " - $game_img_url" - $dest_path
+                    echo -e " - $game_img_url" - $dest_path >> $log
                     download_array+=("$game_img_url")
                     download_dest_paths+=("$dest_path")
                     processed_games[$game]=1
@@ -54,8 +52,8 @@ generateGameLists_artwork() {
 
             # Download in batches of 10
             if [ ${#download_array[@]} -ge 10 ]; then
-                echo ""
-                echo "Start batch"
+                echo "" >> $log
+                echo "Start batch" >> $log
                 for i in "${!download_array[@]}"; do
                     {
                         curl -s -o "${download_dest_paths[$i]}" "${download_array[$i]}" > /dev/null 2>&1
@@ -65,8 +63,8 @@ generateGameLists_artwork() {
                 # Clear the arrays for the next batch
                 download_array=()
                 download_dest_paths=()
-                echo "Completed batch"
-                echo ""
+                echo "Completed batch" >> $log
+                echo "" >> $log
             fi
 
         done
@@ -81,7 +79,6 @@ generateGameLists_artwork() {
         fi
         wait
 
-        echo "Completed downloads for platform: $platform"
+        echo "Completed downloads for platform: $platform" >> $log
     done
 }
-
