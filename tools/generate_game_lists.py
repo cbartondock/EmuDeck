@@ -6,7 +6,10 @@ import re
 def generate_game_lists(roms_path):
     def collect_game_data(system_dir, extensions):
         game_data = []
-        for root, _, files in os.walk(system_dir):
+        for root, dirs, files in os.walk(system_dir, followlinks=True):
+            for dirr in dirs:
+                if os.path.isfile(os.path.join(root,dirr,".ignore")):
+                    dirs.remove(dirr)
             for file in files:
                 filename = os.path.basename(file)
                 extension = filename.split('.')[-1]
@@ -41,12 +44,11 @@ def generate_game_lists(roms_path):
     for system_dir in os.listdir(roms_dir):
         full_path = os.path.join(roms_dir, system_dir)
         if os.path.isdir(full_path) and not os.path.islink(full_path) and os.path.isfile(os.path.join(full_path, 'metadata.txt')):
-            file_count = sum([len(files) for r, d, files in os.walk(full_path)])
+            file_count = sum([len(files) for r, d, files in os.walk(full_path, followlinks=True)])
             if file_count > 2:
                 valid_system_dirs.append(full_path)
 
     game_list = []
-
     for system_dir in valid_system_dirs:
         if any(x in system_dir for x in ["/ps3", "/xbox360", "/model2", "/genesiswide", "/mame"]):
             continue
